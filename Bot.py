@@ -50,10 +50,10 @@ class Bot:
 
     notionItem: Dict[int, NotionItem] = {}
 
-    content_types: List[str]
+    content_types: List[str] = []
     """список типов контента"""
 
-    categories: List[str]
+    categories: List[str] = []
     """список категорий"""
 
     bot: AsyncTeleBot
@@ -85,13 +85,15 @@ class Bot:
             self.userStep[message.chat.id] = 1
             self.notionItem[message.chat.id] = NotionItem()
 
+            self.content_types.clear()
+            self.categories.clear()
             self.content_types, self.categories = \
                 await self.notionItem[message.chat.id].get_content_types_and_categories(notion_token, database_id)
 
             self.content_type_buttons.add(*self.content_types)
             self.category_buttons.add(*self.categories)
 
-            await self.bot.send_message(message.chat.id, "Введите ссылку на материал (если ссылки нет, введие '-')",
+            await self.bot.send_message(message.chat.id, "Введите ссылку на материал (если ссылки нет, введите '-')",
                                         reply_markup=self.hideBoard)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 1)
@@ -158,6 +160,14 @@ class Bot:
             else:
                 await self.bot.send_message(message.chat.id, "Элемент добавлен в таблицу Notion",
                                             reply_markup=self.start_buttons)
+
+        def _parse_post(message: telebot.types.Message) -> NotionItem:
+            """
+            Парсер поста с полезной информацией
+            :param message: сообщение пользователя
+            :return: элемент таблицы Notion
+            """
+            pass
 
     def run(self):
         """Запустить бота"""

@@ -257,7 +257,13 @@ class Bot:
 
             item = NotionItem()
             item.url = urls[0] if urls else None
-            item.description = text
+
+            item.description = message.text if message.text else message.caption
+
+            urls_text = [f'{i+1}. {x}' for i, x in enumerate(urls)]
+
+            item.description = item.description + '\n\n\nИспользуемые в материале ссылки:\n' + '\n'.join(urls_text)
+
             item.name = try_youtube_name if try_youtube_name else _parse_post_name(text)
             item.name = item.name.replace('\n', '')
             item.name = item.name.strip()

@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+import requests
+from bs4 import BeautifulSoup
 from typing import List, Dict, Tuple
 
 import telebot
@@ -251,10 +253,12 @@ class Bot:
             url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
             urls = url_pattern.findall(text)
 
+            try_youtube_name = _try_parse_video_link(urls[0])
+
             item = NotionItem()
             item.url = urls[0] if urls else None
             item.description = text
-            item.name = _parse_post_name(text)
+            item.name = try_youtube_name if try_youtube_name else _parse_post_name(text)
 
             if len(urls) <= 1:
                 return item, 0
@@ -283,6 +287,21 @@ class Bot:
                     text = '-'
 
             return text
+
+        def _try_parse_video_link(link: str) -> str | None:
+            """
+            Парсер ссылки на видео (youtube)
+            :param link: ссылка
+            :return: название видео или None, если это не видео
+            """
+            if link.__contains__('youtube') or link.__contains__('youtu.be'):
+                r = requests.get(link)
+                data = r.text
+                soup = BeautifulSoup(data, 'html.parser')
+                video_name = str(soup.find('title').text)
+                return video_name.replace(' - YouTube', '')
+
+            return None
 
         async def _get_variants(chat_id: int) -> None:
             """

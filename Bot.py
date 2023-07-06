@@ -248,21 +248,19 @@ class Bot:
             :param message: сообщение пользователя
             :return: элемент таблицы Notion и статус код парсинга (0 - успешно, 1 - несколько ссылок)
             """
-            text = message.html_text if message.html_text else message.html_caption
+            text_html = message.html_text if message.html_text else message.html_caption
+            text = message.text if message.text else message.caption
 
             url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
-            urls = url_pattern.findall(text)
+            urls = url_pattern.findall(text_html)
 
             try_youtube_name = _try_parse_video_link(urls[0])
 
             item = NotionItem()
             item.url = urls[0] if urls else None
 
-            item.description = message.text if message.text else message.caption
-
             urls_text = [f'{i+1}. {x}' for i, x in enumerate(urls)]
-
-            item.description = item.description + '\n\n\nИспользуемые в материале ссылки:\n' + '\n'.join(urls_text)
+            item.description = text + '\n\n\nИспользуемые в материале ссылки:\n' + '\n'.join(urls_text)
 
             item.name = try_youtube_name if try_youtube_name else _parse_post_name(text)
             item.name = item.name.replace('\n', '')

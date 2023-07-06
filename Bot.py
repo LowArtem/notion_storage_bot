@@ -259,6 +259,8 @@ class Bot:
             item.url = urls[0] if urls else None
             item.description = text
             item.name = try_youtube_name if try_youtube_name else _parse_post_name(text)
+            item.name = item.name.replace('\n', '')
+            item.name = item.name.strip()
 
             if len(urls) <= 1:
                 return item, 0

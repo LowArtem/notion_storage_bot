@@ -151,26 +151,6 @@ class Bot:
             else:
                 await self.bot.send_message(message.chat.id, "Элемент добавлен в таблицу Notion", reply_markup=self.start_buttons)
 
-        @self.bot.message_handler(content_types=['text', 'photo', 'document', 'animation', 'video'],
-                                  func=lambda message: message.forward_from is not None
-                                                       or message.forward_from_chat is not None)
-        async def forwarded_message(message: telebot.types.Message):
-            self.userStep[message.chat.id] = 10
-            notion_item, parsing_code = _parse_post(message)
-
-            self.notionItem[message.chat.id] = notion_item
-
-            await _get_variants(message.chat.id)
-
-            if parsing_code == 1:
-                self.userStep[message.chat.id] = 11
-                await self.bot.send_message(message.chat.id, "Было обнаружено несколько ссылок.\n"
-                                                             f"Выбрана: {notion_item.url}\n\n"
-                                                             "Если вас устраивает выбор, введите '-', иначе, введите подходящую ссылку.",
-                                            reply_markup=self.hideBoard)
-            else:
-                await send_forwarded_name_before(message)
-
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 11)
         async def send_multiple_links(message: telebot.types.Message):
             self.userStep[message.chat.id] = 10
@@ -191,16 +171,24 @@ class Bot:
             if message.text != '-':
                 self.notionItem[message.chat.id].name = message.text
 
-            await self.bot.send_message(message.chat.id, "Выберите тип контента", reply_markup=self.content_type_buttons)
+            await self.bot.send_message(message.chat.id, "Введите описание материала (или введите '-')", reply_markup=self.hideBoard)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 12)
-        async def send_add_content_type(message: telebot.types.Message):
+        async def send_forwarded_description(message: telebot.types.Message):
             self.userStep[message.chat.id] = 13
+            if message.text != '-':
+                self.notionItem[message.chat.id].description = message.text
+
+            await self.bot.send_message(message.chat.id, "Выберите тип контента", reply_markup=self.content_type_buttons)
+
+        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 13)
+        async def send_forwarded_add_content_type(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 14
 
             # валидация
             if self.content_types:
                 if not self.content_types.__contains__(message.text):
-                    self.userStep[message.chat.id] = 12
+                    self.userStep[message.chat.id] = 13
                     await self.bot.send_message(message.chat.id,
                                                 "Данный тип контента не существует, попробуйте ещё раз",
                                                 reply_markup=self.content_type_buttons)
@@ -210,14 +198,14 @@ class Bot:
 
             await self.bot.send_message(message.chat.id, "Выберите категорию", reply_markup=self.category_buttons)
 
-        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 13)
-        async def send_add_category(message: telebot.types.Message):
+        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 14)
+        async def send_forwarded_add_category(message: telebot.types.Message):
             self.userStep[message.chat.id] = 0
 
             # валидация
             if self.categories:
                 if not self.categories.__contains__(message.text):
-                    self.userStep[message.chat.id] = 13
+                    self.userStep[message.chat.id] = 14
                     await self.bot.send_message(message.chat.id,
                                                 "Данная категория не существует, попробуйте ещё раз",
                                                 reply_markup=self.category_buttons)
@@ -232,6 +220,25 @@ class Bot:
                 await self.bot.send_message(message.chat.id, "Ошибка добавления элемента в таблицу Notion", reply_markup=self.start_buttons)
             else:
                 await self.bot.send_message(message.chat.id, "Элемент добавлен в таблицу Notion", reply_markup=self.start_buttons)
+
+        # Должен быть самым последним обработчиком, так как он пытается обработать любое сообщение
+        @self.bot.message_handler(content_types=['text', 'photo', 'document', 'animation', 'video'])
+        async def forwarded_message(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 10
+            notion_item, parsing_code = _parse_post(message)
+
+            self.notionItem[message.chat.id] = notion_item
+
+            await _get_variants(message.chat.id)
+
+            if parsing_code == 1:
+                self.userStep[message.chat.id] = 11
+                await self.bot.send_message(message.chat.id, "Было обнаружено несколько ссылок.\n"
+                                                             f"Выбрана: {notion_item.url}\n\n"
+                                                             "Если вас устраивает выбор, введите '-', иначе, введите подходящую ссылку.",
+                                            reply_markup=self.hideBoard)
+            else:
+                await send_forwarded_name_before(message)
 
         def _parse_post(message: telebot.types.Message) -> Tuple[NotionItem, int]:
             """

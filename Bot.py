@@ -90,6 +90,9 @@ class Bot:
             self.content_types, self.categories = \
                 await self.notionItem[message.chat.id].get_content_types_and_categories(notion_token, database_id)
 
+            self.content_type_buttons.keyboard.clear()
+            self.category_buttons.keyboard.clear()
+
             self.content_type_buttons.add(*self.content_types)
             self.category_buttons.add(*self.categories)
 

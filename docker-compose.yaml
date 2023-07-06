@@ -1,0 +1,26 @@
+version: "3.9"
+services:
+  bot:
+    container_name: notion_storage_bot
+    image: lowartem/notion_storage_bot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    container_name: watchtower_notion
+    image: containrrr/watchtower
+    restart: always
+    environment:
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_HTTP_API_TOKEN=1f67e8e048f9fa779570cdf6a60968520d70a5ec4cab3e5ab3bf0f7c32252409
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"

@@ -164,23 +164,25 @@ class Bot:
         async def send_forwarded_name_before(message: telebot.types.Message):
             status, title, theses = _try_parse_post_theses(self.notionItem[message.chat.id].url)
             if status:
-                self.notionItem[message.chat.id].name = title
+                self.notionItem[message.chat.id].name_variant = title
 
-                self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name.replace('\n', '')
-                self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name.strip()
+                self.notionItem[message.chat.id].name_variant = self.notionItem[message.chat.id].name_variant.replace('\n', '')
+                self.notionItem[message.chat.id].name_variant = self.notionItem[message.chat.id].name_variant.strip()
 
                 self.notionItem[message.chat.id].description = \
                     self.notionItem[message.chat.id].description + f'\n\n\nОсновные тезисы статьи:\n{theses}'
 
-            await self.bot.send_message(message.chat.id, "Проверьте и при необходимости исправьте название материала:\n\n"
-                                                         f"'{self.notionItem[message.chat.id].name}'\n\n"
-                                                         "Если вас устраивает выбор, введите '-', иначе, введите подходящее название",
+            await self.bot.send_message(message.chat.id, "Выберите или, при необходимости, исправьте название материала:\n\n"
+                                                         f"1) '{self.notionItem[message.chat.id].name}'\n\n"
+                                                         f"2) '{self.notionItem[message.chat.id].name_variant}'\n\n",
                                         reply_markup=self.hideBoard)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 10)
         async def send_forwarded_name(message: telebot.types.Message):
             self.userStep[message.chat.id] = 12
-            if message.text != '-':
+            if message.text == '2':
+                self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name_variant
+            elif message.text != '1':
                 self.notionItem[message.chat.id].name = message.text
 
             await self.bot.send_message(message.chat.id, "Введите описание материала (или введите '-')", reply_markup=self.hideBoard)

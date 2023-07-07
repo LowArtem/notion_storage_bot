@@ -182,14 +182,15 @@ class Bot:
 
         async def send_forwarded_name_before(message: telebot.types.Message):
             status, title, theses = _try_parse_post_theses(self.notionItem[message.chat.id].url)
+
+            title = title.replace('\n', '').strip()
+
             if status:
-                self.notionItem[message.chat.id].name_variant = title
-
-                self.notionItem[message.chat.id].name_variant = self.notionItem[message.chat.id].name_variant.replace('\n', '')
-                self.notionItem[message.chat.id].name_variant = self.notionItem[message.chat.id].name_variant.strip()
-
                 self.notionItem[message.chat.id].description = \
                     self.notionItem[message.chat.id].description + f'\n\n\nОсновные тезисы статьи:\n{theses}'
+
+            if status and title != self.notionItem[message.chat.id].name:
+                self.notionItem[message.chat.id].name_variant = title
 
                 text = "Выберите или, при необходимости, исправьте название материала:\n\n" + \
                        f"1) '{self.notionItem[message.chat.id].name}'\n\n" + \

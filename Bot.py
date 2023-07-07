@@ -254,7 +254,7 @@ class Bot:
             url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
             urls = url_pattern.findall(text_html)
 
-            try_youtube_name = _try_parse_video_link(urls[0])
+            try_youtube_name = _try_parse_video_link(urls[0] if urls else None)
 
             item = NotionItem()
             item.url = urls[0] if urls else None
@@ -294,12 +294,15 @@ class Bot:
 
             return text
 
-        def _try_parse_video_link(link: str) -> str | None:
+        def _try_parse_video_link(link: str | None) -> str | None:
             """
             Парсер ссылки на видео (youtube)
             :param link: ссылка
             :return: название видео или None, если это не видео
             """
+            if link is None:
+                return None
+
             if link.__contains__('youtube') or link.__contains__('youtu.be'):
                 r = requests.get(link)
                 data = r.text

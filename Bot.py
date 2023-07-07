@@ -40,6 +40,19 @@ class Bot:
     hideBoard = telebot.types.ReplyKeyboardRemove()
     """удалить кнопки из клавиатуры"""
 
+    cancel_buttons_text = 'Отменить'
+    approve_buttons_text = 'Подтвердить'
+    skip_buttons_text = 'Пропустить'
+
+    approve_cancel_buttons = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    approve_cancel_buttons.add(approve_buttons_text, cancel_buttons_text)
+
+    skip_cancel_buttons = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    skip_cancel_buttons.add(skip_buttons_text, cancel_buttons_text)
+
+    cancel_buttons = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    cancel_buttons.add(cancel_buttons_text)
+
     start_message = 'Добро пожаловать в NotionStorageBot.\n\n' \
                     'Он позволяет сохранять полезные материалы, ссылки, заметки в таблицу Notion.\n\n' \
                     'Список доступных команд по команде /help'
@@ -71,6 +84,12 @@ class Bot:
         """
         self.bot = AsyncTeleBot(token=telegram_token)
 
+        # Должно быть самым первым, так как отменяет все процессы при запросе
+        @self.bot.message_handler(func=lambda message: message.text == self.cancel_buttons_text)
+        async def send_cancel(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 0
+            await self.bot.send_message(message.chat.id, "Текущая операция отменена", reply_markup=self.start_buttons)
+
         # /start handler
         @self.bot.message_handler(commands=['start'])
         async def send_start(message: telebot.types.Message):
@@ -90,14 +109,14 @@ class Bot:
 
             await _get_variants(message.chat.id)
 
-            await self.bot.send_message(message.chat.id, "Введите ссылку на материал (если ссылки нет, введите '-')", reply_markup=self.hideBoard)
+            await self.bot.send_message(message.chat.id, "Введите ссылку на материал (или нажмите Пропустить)", reply_markup=self.skip_cancel_buttons)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 1)
         async def send_add_url(message: telebot.types.Message):
             self.userStep[message.chat.id] = 2
-            self.notionItem[message.chat.id].url = message.text if message.text != '-' else None
+            self.notionItem[message.chat.id].url = message.text if message.text != self.skip_buttons_text else None
 
-            await self.bot.send_message(message.chat.id, "Введите название материала", reply_markup=self.hideBoard)
+            await self.bot.send_message(message.chat.id, "Введите название материала", reply_markup=self.cancel_buttons)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 2)
         async def send_add_name(message: telebot.types.Message):
@@ -138,12 +157,12 @@ class Bot:
 
             self.notionItem[message.chat.id].category = message.text
 
-            await self.bot.send_message(message.chat.id, "Введите описание материала (если описание нет, введите '-')", reply_markup=self.hideBoard)
+            await self.bot.send_message(message.chat.id, "Введите описание материала (или нажмите Пропустить)", reply_markup=self.skip_cancel_buttons)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 5)
         async def send_add_description(message: telebot.types.Message):
             self.userStep[message.chat.id] = 0
-            self.notionItem[message.chat.id].description = message.text if message.text != '-' else None
+            self.notionItem[message.chat.id].description = message.text if message.text != self.skip_buttons_text else None
 
             try:
                 await self.notionItem[message.chat.id].add_item_to_notion(notion_token, database_id)
@@ -156,7 +175,7 @@ class Bot:
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 11)
         async def send_multiple_links(message: telebot.types.Message):
             self.userStep[message.chat.id] = 10
-            if message.text != '-':
+            if message.text != self.skip_buttons_text:
                 self.notionItem[message.chat.id].url = message.text
 
             await send_forwarded_name_before(message)
@@ -172,10 +191,19 @@ class Bot:
                 self.notionItem[message.chat.id].description = \
                     self.notionItem[message.chat.id].description + f'\n\n\nОсновные тезисы статьи:\n{theses}'
 
-            await self.bot.send_message(message.chat.id, "Выберите или, при необходимости, исправьте название материала:\n\n"
-                                                         f"1) '{self.notionItem[message.chat.id].name}'\n\n"
-                                                         f"2) '{self.notionItem[message.chat.id].name_variant}'\n\n",
-                                        reply_markup=self.hideBoard)
+                text = "Выберите или, при необходимости, исправьте название материала:\n\n" + \
+                       f"1) '{self.notionItem[message.chat.id].name}'\n\n" + \
+                       f"2) '{self.notionItem[message.chat.id].name_variant}'\n\n"
+
+                variants_buttons = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+                variants_buttons.add('1', '2', self.cancel_buttons_text)
+
+                await self.bot.send_message(message.chat.id, text, reply_markup=variants_buttons)
+            else:
+                text = "Подтвердите название материала или исправьте, если необходимо:\n\n" + \
+                       f"'{self.notionItem[message.chat.id].name}'\n\n"
+
+                await self.bot.send_message(message.chat.id, text, reply_markup=self.approve_cancel_buttons)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 10)
         async def send_forwarded_name(message: telebot.types.Message):
@@ -185,12 +213,12 @@ class Bot:
             elif message.text != '1':
                 self.notionItem[message.chat.id].name = message.text
 
-            await self.bot.send_message(message.chat.id, "Введите описание материала (или введите '-')", reply_markup=self.hideBoard)
+            await self.bot.send_message(message.chat.id, "Введите описание материала (или нажмите Пропустить)", reply_markup=self.skip_cancel_buttons)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 12)
         async def send_forwarded_description(message: telebot.types.Message):
             self.userStep[message.chat.id] = 13
-            if message.text != '-':
+            if message.text != self.skip_buttons_text:
                 self.notionItem[message.chat.id].description = message.text
 
             await self.bot.send_message(message.chat.id, "Выберите тип контента", reply_markup=self.content_type_buttons)
@@ -249,8 +277,8 @@ class Bot:
                 self.userStep[message.chat.id] = 11
                 await self.bot.send_message(message.chat.id, "Было обнаружено несколько ссылок.\n"
                                                              f"Выбрана: {notion_item.url}\n\n"
-                                                             "Если вас устраивает выбор, введите '-', иначе, введите подходящую ссылку.",
-                                            reply_markup=self.hideBoard)
+                                                             "Подтвердите выбор, или введите свой вариант",
+                                            reply_markup=self.approve_cancel_buttons)
             else:
                 await send_forwarded_name_before(message)
 

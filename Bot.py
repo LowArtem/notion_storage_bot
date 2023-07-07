@@ -62,7 +62,7 @@ class Bot:
     bot: AsyncTeleBot
     """бот"""
 
-    def __init__(self, telegram_token: str, notion_token: str, database_id: str, admin_username: str):
+    def __init__(self, telegram_token: str, notion_token: str, database_id: str, admin_username: str, yandex_token: str):
         """
         Создать бота
         :param telegram_token: токен telegram бота
@@ -162,6 +162,16 @@ class Bot:
             await send_forwarded_name_before(message)
 
         async def send_forwarded_name_before(message: telebot.types.Message):
+            status, title, theses = _try_parse_post_theses(self.notionItem[message.chat.id].url)
+            if status:
+                self.notionItem[message.chat.id].name = title
+
+                self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name.replace('\n', '')
+                self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name.strip()
+
+                self.notionItem[message.chat.id].description = \
+                    self.notionItem[message.chat.id].description + f'\n\n\nОсновные тезисы статьи:\n{theses}'
+
             await self.bot.send_message(message.chat.id, "Проверьте и при необходимости исправьте название материала:\n\n"
                                                          f"'{self.notionItem[message.chat.id].name}'\n\n"
                                                          "Если вас устраивает выбор, введите '-', иначе, введите подходящее название",
@@ -259,7 +269,7 @@ class Bot:
             item = NotionItem()
             item.url = urls[0] if urls else None
 
-            urls_text = [f'{i+1}. {x}' for i, x in enumerate(urls)]
+            urls_text = [f'{i + 1}. {x}' for i, x in enumerate(urls)]
             item.description = text + '\n\n\nИспользуемые в материале ссылки:\n' + '\n'.join(urls_text)
 
             item.name = try_youtube_name if try_youtube_name else _parse_post_name(text)
@@ -311,6 +321,38 @@ class Bot:
                 return video_name.replace(' - YouTube', '')
 
             return None
+
+        def _try_parse_post_theses(link: str) -> Tuple[bool, str, str]:
+            """
+            Парсер текста поста
+            :param link: сслыка на пост
+            :return: успешность, заголовок, основные тезисы материала
+            """
+            endpoint = 'https://300.ya.ru/api/sharing-url'
+            response = requests.post(endpoint,
+                                     json={'article_url': link},
+                                     headers={'Authorization': f'OAuth {yandex_token}'})
+            data = response.json()
+            status = data['status']
+            parsed_url = data['sharing_url'] if status == 'success' else None
+
+            if status == 'success':
+                r = requests.get(parsed_url)
+                r.encoding = 'utf-8'
+                data = r.text
+                soup = BeautifulSoup(data, 'html.parser')
+                title = str(soup.find('div', class_='content-title').find('h1').text)
+
+                if title == 'Нейросеть не смогла извлечь текст статьи. Попробуйте другую.':
+                    return False, '', ''
+
+                theses = map(lambda x: str(x.text), soup.find('div', class_='content-theses').find('ul').findAll('li'))
+                theses = '\n- '.join(theses)
+                theses = '- ' + theses
+
+                return True, title, theses
+            else:
+                return False, '', ''
 
         async def _get_variants(chat_id: int) -> None:
             """

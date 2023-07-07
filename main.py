@@ -6,6 +6,7 @@ NOTION_TOKEN = os.getenv('NOTION_TOKEN')
 DATABASE_ID = os.getenv('DATABASE_ID')
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
+YANDEX_TOKEN = os.getenv('YANDEX_TOKEN')
 
 
 def main():
@@ -13,7 +14,7 @@ def main():
         logging.log(logging.ERROR, 'Переменные окружения NOTION_TOKEN, DATABASE_ID, BOT_TOKEN, ADMIN_USERNAME не заданы')
         return
 
-    bot = Bot(BOT_TOKEN, NOTION_TOKEN, DATABASE_ID, ADMIN_USERNAME)
+    bot = Bot(BOT_TOKEN, NOTION_TOKEN, DATABASE_ID, ADMIN_USERNAME, YANDEX_TOKEN)
     bot.run()
 
 

@@ -175,7 +175,7 @@ class Bot:
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 11)
         async def send_multiple_links(message: telebot.types.Message):
             self.userStep[message.chat.id] = 10
-            if message.text != self.skip_buttons_text:
+            if message.text != self.skip_buttons_text and message.text != self.approve_buttons_text:
                 self.notionItem[message.chat.id].url = message.text
 
             await send_forwarded_name_before(message)
@@ -211,7 +211,7 @@ class Bot:
             self.userStep[message.chat.id] = 12
             if message.text == '2':
                 self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name_variant
-            elif message.text != '1':
+            elif message.text == '1':
                 self.notionItem[message.chat.id].name = message.text
 
             await self.bot.send_message(message.chat.id, "Введите описание материала (или нажмите Пропустить)", reply_markup=self.skip_cancel_buttons)
@@ -219,7 +219,7 @@ class Bot:
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 12)
         async def send_forwarded_description(message: telebot.types.Message):
             self.userStep[message.chat.id] = 13
-            if message.text != self.skip_buttons_text:
+            if message.text != self.skip_buttons_text and message.text != self.approve_buttons_text:
                 self.notionItem[message.chat.id].description = message.text
 
             await self.bot.send_message(message.chat.id, "Выберите тип контента", reply_markup=self.content_type_buttons)

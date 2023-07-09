@@ -211,7 +211,7 @@ class Bot:
             self.userStep[message.chat.id] = 12
             if message.text == '2':
                 self.notionItem[message.chat.id].name = self.notionItem[message.chat.id].name_variant
-            elif message.text == '1':
+            elif message.text != '1' and message.text != self.approve_buttons_text and message.text != self.skip_buttons_text:
                 self.notionItem[message.chat.id].name = message.text
 
             await self.bot.send_message(message.chat.id, "Введите описание материала (или нажмите Пропустить)", reply_markup=self.skip_cancel_buttons)

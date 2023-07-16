@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+import time
+
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Tuple
@@ -372,7 +374,11 @@ class Bot:
                 r.encoding = 'utf-8'
                 data = r.text
                 soup = BeautifulSoup(data, 'html.parser')
-                title = str(soup.find('div', class_='content-title').find('h1').text)
+
+                try:
+                    title = str(soup.find('div', class_='content-title').find('h1').text)
+                except:
+                    title = 'Нейросеть не смогла извлечь текст статьи. Попробуйте другую.'
 
                 if title == 'Нейросеть не смогла извлечь текст статьи. Попробуйте другую.':
                     return False, '', ''

@@ -33,4 +33,4 @@ jobs:
     steps:
       - name: Send request
         run: |
-          curl -H "Authorization: Bearer 1f67e8e048f9fa779570cdf6a60968520d70a5ec4cab3e5ab3bf0f7c32252409" http://45.15.159.0:8080/v1/update
+          curl -H "Authorization: Bearer 1f67e8e048f9fa779570cdf6a60968520d70a5ec4cab3e5ab3bf0f7c32252409" http://5.42.78.156:8080/v1/update

@@ -328,7 +328,7 @@ class Bot:
                     text = re.sub(url_pattern, '', text)
 
                     text = text.split('\n')[0]
-                    text = re.split('[?.!]', text)[0]
+                    text = re.split('[?.!](?:\s|\n)', text)[0]
             except:
                 text = '-'
             else:
@@ -376,16 +376,14 @@ class Bot:
                 soup = BeautifulSoup(data, 'html.parser')
 
                 try:
-                    title = str(soup.find('div', class_='content-title').find('h1').text)
+                    title = soup.find('meta', {'property': 'og:title'})
+                    title = str(title.get('content')) if title else None
+                    title = title.replace('Пересказ YandexGPT: ', '')
                 except:
-                    title = 'Нейросеть не смогла извлечь текст статьи. Попробуйте другую.'
-
-                if title == 'Нейросеть не смогла извлечь текст статьи. Попробуйте другую.':
                     return False, '', ''
 
-                theses = map(lambda x: str(x.text), soup.find('div', class_='content-theses').find('ul').findAll('li'))
-                theses = '\n- '.join(theses)
-                theses = '- ' + theses
+                theses = soup.find('meta', {'property': 'og:description'})
+                theses = str(theses.get('content')) if theses else None
 
                 return True, title, theses
             else:

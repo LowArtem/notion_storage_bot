@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime
 
 from imagekitio import ImageKit
@@ -8,6 +9,11 @@ from imagekitio.models.results.UploadFileResult import UploadFileResult
 
 class ImageStore:
 
+    _image_kit: ImageKit | None
+    """
+    Клиент для сохранения изображений
+    """
+
     def __init__(self, privateKey: str, publicKey: str, urlEndpoint: str):
         """
         Конструктор
@@ -15,12 +21,8 @@ class ImageStore:
         :param publicKey: публичный ключ
         :param urlEndpoint: адрес
         """
+        self._image_kit = None
         self._get_image_kit(privateKey, publicKey, urlEndpoint)
-
-    _image_kit: ImageKit
-    """
-    Клиент для сохранения изображений
-    """
 
     def _get_image_kit(self, privateKey: str, publicKey: str, urlEndpoint: str) -> ImageKit:
         """
@@ -47,20 +49,21 @@ class ImageStore:
         options = UploadFileRequestOptions(
             use_unique_file_name=True,
             tags=["image"],
-            is_private_file=True,
-            custom_metadata={"datetime": datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            is_private_file=False
         )
 
         results: list[UploadFileResult] = []
 
         for image in images:
+            encoded_file = base64.b64encode(image)
+
             results.append(self._image_kit.upload_file(
-                file=image,
+                file=encoded_file,
                 file_name=self._generate_file_name(),
                 options=options
             ))
 
-        return list(map(lambda x: x['url'], results))
+        return list(map(lambda x: x.url, results))
 
     def delete_outdated_images(self) -> None:
         """
@@ -87,6 +90,6 @@ class ImageStore:
         Генерирует имя для изображения
         :return: имя для изображения
         """
-        file_name = "image_" + datetime.now().strftime('%Y%m%d%H%M%S') + ".jpg"
+        file_name = "image_" + datetime.now().strftime('%Y_%m_%d_%H_%M_%S') + ".jpg"
 
         return file_name

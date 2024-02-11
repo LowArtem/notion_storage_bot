@@ -1,17 +1,17 @@
 import asyncio
 import logging
 import re
-import time
-
-import requests
-from bs4 import BeautifulSoup
 from typing import List, Dict, Tuple
 
+import requests
 import telebot
+from bs4 import BeautifulSoup
 from notion_client import APIResponseError
 from telebot.async_telebot import AsyncTeleBot
+from Middleware.AlbumMiddleware import AlbumMiddleware
 
 from NotionItem import NotionItem
+from NotionWorkNote import NotionWorkNote, NotionWorkNoteItem
 
 
 class Bot:
@@ -22,7 +22,11 @@ class Bot:
     commands = {
         'start': 'старт бота',
         'help': 'справка по командам',
-        'add': 'добавить элемент в таблицу Notion'
+        'add': 'добавить элемент в таблицу Notion',
+        'add_work_urg_imp': 'Срочная важная',
+        'add_work_urg_unimp': 'Срочная неважная',
+        'add_work_unurg_imp': 'Несрочная важная',
+        'add_work_unurg_unimp': 'Несрочная неважная'
     }
     """список команд бота"""
 
@@ -31,7 +35,8 @@ class Bot:
 
     start_buttons = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     """начальные кнопки"""
-    start_buttons.add(commands['help'], commands['add'])
+    start_buttons.add(commands['help'], commands['add'], commands['add_work_urg_imp'], commands['add_work_urg_unimp'], commands['add_work_unurg_imp'],
+                      commands['add_work_unurg_unimp'])
 
     category_buttons = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     """кнопки выбора категории"""
@@ -63,10 +68,17 @@ class Bot:
     help_message = 'Список доступных команд:\n\n' \
                    '/start - старт бота\n' \
                    '/help - справка по командам\n' \
-                   '/add - добавить элемент в таблицу Notion'
+                   '/add - добавить элемент в таблицу Notion\n' \
+                   '/add_work_urg_imp - добавить срочную важную задачу\n' \
+                   '/add_work_urg_unimp - добавить срочную неважную задачу\n' \
+                   '/add_work_unurg_imp - добавить несрочную важную задачу\n' \
+                   '/add_work_unurg_unimp - добавить несрочную неважную задачу\n'
     """сообщение команды /help"""
 
     notionItem: Dict[int, NotionItem] = {}
+    """ОБъект NotionItem для каждого пользователя"""
+
+    notion_work_note_item: Dict[int, NotionWorkNoteItem] = {}
 
     content_types: List[str] = []
     """список типов контента"""
@@ -77,14 +89,22 @@ class Bot:
     bot: AsyncTeleBot
     """бот"""
 
-    def __init__(self, telegram_token: str, notion_token: str, database_id: str, admin_username: str, yandex_token: str):
+    notion_work_note_client: NotionWorkNote
+    """клиент для работы с рабочими заметками Notion"""
+
+    def __init__(self, telegram_token: str, notion_token: str, database_id: str, admin_username: str, yandex_token: str,
+                 notion_work_note_client: NotionWorkNote):
         """
         Создать бота
         :param telegram_token: токен telegram бота
         :param notion_token: токен для доступа к Notion
         :param database_id: ID таблицы Notion
         """
+        # telebot.apihelper.ENABLE_MIDDLEWARE = True
         self.bot = AsyncTeleBot(token=telegram_token)
+        # self.bot.setup_middleware(AlbumMiddleware(1))
+
+        self.notion_work_note_client = notion_work_note_client
 
         # Должно быть самым первым, так как отменяет все процессы при запросе
         @self.bot.message_handler(func=lambda message: message.text == self.cancel_buttons_text)
@@ -112,6 +132,79 @@ class Bot:
             await _get_variants(message.chat.id)
 
             await self.bot.send_message(message.chat.id, "Введите ссылку на материал (или нажмите Пропустить)", reply_markup=self.skip_cancel_buttons)
+
+        @self.bot.message_handler(func=lambda message: message.text == self.commands['add_work_urg_imp'] or message.text == '/add_work_urg_imp')
+        async def send_add_work_urgent_important(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 20
+            await self.bot.send_message(message.chat.id, "Введите заголовок задачи", reply_markup=self.cancel_buttons)
+
+        @self.bot.message_handler(func=lambda message: message.text == self.commands['add_work_urg_unimp'] or message.text == '/add_work_urg_unimp')
+        async def send_add_work_urgent_unimportant(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 21
+            await self.bot.send_message(message.chat.id, "Введите заголовок задачи", reply_markup=self.cancel_buttons)
+
+        @self.bot.message_handler(func=lambda message: message.text == self.commands['add_work_unurg_imp'] or message.text == '/add_work_unurg_imp')
+        async def send_add_work_unurgent_important(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 22
+            await self.bot.send_message(message.chat.id, "Введите заголовок задачи", reply_markup=self.cancel_buttons)
+
+        @self.bot.message_handler(func=lambda message: message.text == self.commands['add_work_unurg_unimp'] or message.text == '/add_work_unurg_unimp')
+        async def send_add_work_unurgent_unimportant(message: telebot.types.Message):
+            self.userStep[message.chat.id] = 23
+            await self.bot.send_message(message.chat.id, "Введите заголовок задачи", reply_markup=self.cancel_buttons)
+
+        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] in [20, 21, 22, 23])
+        async def send_work_name(message: telebot.types.Message):
+            self.userStep[message.chat.id] += 10
+
+            self.notion_work_note_item[message.chat.id] = NotionWorkNoteItem()
+            self.notion_work_note_item[message.chat.id].name = message.text
+
+            await self.bot.send_message(message.chat.id, "Введите описание задачи (можно прикреплять изображения)", reply_markup=self.skip_cancel_buttons)
+
+        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] in [30, 31, 32, 33], content_types=['text', 'photo'])
+        async def send_work_description(message: telebot.types.Message):
+            if message.text != self.skip_buttons_text:
+                if message.photo is not None:
+                    file_info = await self.bot.get_file(message.photo[-1].file_id)
+                    file = await self.bot.download_file(file_info.file_path)
+
+                    self.notion_work_note_item[message.chat.id].images = []
+                    self.notion_work_note_item[message.chat.id].images.append(file)
+
+                    if message.caption:
+                        self.notion_work_note_item[message.chat.id].description = message.caption
+                else:
+                    self.notion_work_note_item[message.chat.id].images = None
+                    self.notion_work_note_item[message.chat.id].description = message.text
+            else:
+                self.notion_work_note_item[message.chat.id].description = None
+
+            match self.userStep[message.chat.id]:
+                case 30:
+                    self.notion_work_note_item[message.chat.id].is_urgent = True
+                    self.notion_work_note_item[message.chat.id].is_important = True
+                case 31:
+                    self.notion_work_note_item[message.chat.id].is_urgent = True
+                    self.notion_work_note_item[message.chat.id].is_important = False
+                case 32:
+                    self.notion_work_note_item[message.chat.id].is_urgent = False
+                    self.notion_work_note_item[message.chat.id].is_important = True
+                case 33:
+                    self.notion_work_note_item[message.chat.id].is_urgent = False
+                    self.notion_work_note_item[message.chat.id].is_important = False
+
+            self.notion_work_note_item[message.chat.id].deadline = None
+
+            # добавление элемента в таблицу Notion
+            self.userStep[message.chat.id] = 0
+            try:
+                await self.notion_work_note_client.add_item_to_notion(self.notion_work_note_item[message.chat.id])
+            except APIResponseError as e:
+                logging.log(logging.ERROR, e)
+                await self.bot.send_message(message.chat.id, "Ошибка добавления элемента в таблицу Notion", reply_markup=self.start_buttons)
+            else:
+                await self.bot.send_message(message.chat.id, "Задача добавлена в таблицу Notion", reply_markup=self.start_buttons)
 
         @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] == 1)
         async def send_add_url(message: telebot.types.Message):
@@ -182,6 +275,7 @@ class Bot:
 
             await send_forwarded_name_before(message)
 
+        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] not in [20, 21, 22, 23, 30, 31, 32, 33])
         async def send_forwarded_name_before(message: telebot.types.Message):
             status, title, theses = _try_parse_post_theses(self.notionItem[message.chat.id].url)
 

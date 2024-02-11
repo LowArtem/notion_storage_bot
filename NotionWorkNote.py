@@ -6,6 +6,30 @@ from notion_client import AsyncClient
 from ImageStore import ImageStore
 
 
+class NotionWorkNoteItem:
+    """
+    Структура рабочей заметки в Notion
+    """
+
+    name: str
+    """Заголовок задачи"""
+
+    description: Union[str, None]
+    """Описание задачи"""
+
+    images: Union[List[bytes], None]
+    """Прикрепленные изображения"""
+
+    is_urgent: bool
+    """Срочность задачи"""
+
+    is_important: bool
+    """Важность задачи"""
+
+    deadline: Union[str, None]
+    """Крайний срок выполнения задачи (в формате ISO 8601, пока не используется)"""
+
+
 class NotionWorkNote:
     """
     Рабочая заметка в Notion
@@ -13,7 +37,7 @@ class NotionWorkNote:
 
     _image_store: ImageStore
 
-    _notion_client: AsyncClient
+    _notion_client: AsyncClient | None
     """Клиент Notion"""
 
     _notion_token: str
@@ -27,6 +51,7 @@ class NotionWorkNote:
         Конструктор
         :param notion_token: токен для доступа к Notion
         """
+        self._notion_client = None
         self._notion_token = notion_token
         self._database_id = database_id
         self._get_notion_client(notion_token)
@@ -42,25 +67,21 @@ class NotionWorkNote:
             self._notion_client = AsyncClient(auth=notion_token)
         return self._notion_client
 
-    async def add_item_to_notion(self, is_urgent: bool, is_important: bool, deadline: Union[str, None], name: str, description: Union[str, None],
-                                 images: Union[List[bytes], None]) -> None:
+    async def add_item_to_notion(self, item: NotionWorkNoteItem) -> None:
         """
         Добавить запись в базу данных Notion
-        :param is_urgent: срочность задачи
-        :param is_important: важность задачи
-        :param deadline: крайний срок выполнения задачи
-        :param name: название задачи
-        :param description: описание задачи
-        :param images: прикрепленные изображения
+        :param item: структура задачи
         :return: none
         """
         try:
             children = []
 
-            if images is not None:
-                children.extend(self._get_images(images))
+            if item.images is not None:
+                images = self._get_images(item.images)
+                if images is not None:
+                    children.extend(images)
 
-            if description is not None:
+            if item.description is not None:
                 children.append({
                     "object": "block",
                     "type": "paragraph",
@@ -68,7 +89,7 @@ class NotionWorkNote:
                         "rich_text": [
                             {
                                 "text": {
-                                    "content": description
+                                    "content": item.description
                                 }
                             }
                         ],
@@ -81,29 +102,28 @@ class NotionWorkNote:
                     "type": "database_id",
                     "database_id": self._database_id
                 },
+                icon={
+                    "type": "emoji",
+                    "emoji": "⚪"
+                },
                 properties={
                     "Task": {
                         "title": [
                             {
                                 "text": {
-                                    "content": name
+                                    "content": item.name
                                 }
                             }
                         ]
                     },
                     "Urgent": {
-                        "checkbox": is_urgent
+                        "checkbox": item.is_urgent
                     },
                     "Important": {
-                        "checkbox": is_important
+                        "checkbox": item.is_important
                     },
                     "Done": {
                         "checkbox": False
-                    },
-                    "Deadline": {
-                        "date": {
-                            "start": deadline if deadline is not None else ""
-                        }
                     }
                 },
                 children=children

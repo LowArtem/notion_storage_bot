@@ -51,7 +51,7 @@ class NotionItem:
     Клиент Notion
     """
 
-    def _get_notion_client(self, notion_token: str):
+    def _get_notion_client(self, notion_token: str) -> AsyncClient:
         """
         Получить клиент Notion
         :param notion_token: токен для доступа к Notion

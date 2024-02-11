@@ -99,9 +99,9 @@ class Bot:
         :param notion_token: токен для доступа к Notion
         :param database_id: ID таблицы Notion
         """
-        telebot.apihelper.ENABLE_MIDDLEWARE = True
+        # telebot.apihelper.ENABLE_MIDDLEWARE = True
         self.bot = AsyncTeleBot(token=telegram_token)
-        self.bot.setup_middleware(AlbumMiddleware(1))
+        # self.bot.setup_middleware(AlbumMiddleware(1))
 
         self.notion_work_note_client = notion_work_note_client
 

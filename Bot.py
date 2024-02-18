@@ -274,7 +274,6 @@ class Bot:
 
             await send_forwarded_name_before(message)
 
-        @self.bot.message_handler(func=lambda message: self.userStep[message.chat.id] not in [20, 21, 22, 23, 30, 31, 32, 33])
         async def send_forwarded_name_before(message: telebot.types.Message):
             status, title, theses = _try_parse_post_theses(self.notionItem[message.chat.id].url)
 

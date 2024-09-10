@@ -450,7 +450,7 @@ class Bot:
         def _try_parse_post_theses(link: str) -> Tuple[bool, str, str]:
             """
             Парсер текста поста
-            :param link: сслыка на пост
+            :param link: ссылка на пост
             :return: успешность, заголовок, основные тезисы материала
             """
             endpoint = 'https://300.ya.ru/api/sharing-url'
@@ -470,7 +470,7 @@ class Bot:
                 try:
                     title = soup.find('meta', {'property': 'og:title'})
                     title = str(title.get('content')) if title else None
-                    title = title.replace('Пересказ YandexGPT: ', '')
+                    title = title.replace(' - Пересказ YandexGPT', '')
                 except:
                     return False, '', ''
 

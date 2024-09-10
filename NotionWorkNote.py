@@ -82,20 +82,23 @@ class NotionWorkNote:
                     children.extend(images)
 
             if item.description is not None:
-                children.append({
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {
-                        "rich_text": [
-                            {
-                                "text": {
-                                    "content": item.description
+                # Разбиваем описание на части по 2000 символов
+                description_parts = [item.description[i:i + 2000] for i in range(0, len(item.description), 2000)]
+                for part in description_parts:
+                    children.append({
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "text": {
+                                        "content": part
+                                    }
                                 }
-                            }
-                        ],
-                        "color": "default"
-                    }
-                })
+                            ],
+                            "color": "default"
+                        }
+                    })
 
             await self._notion_client.pages.create(
                 parent={
